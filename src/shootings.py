@@ -6,9 +6,10 @@ import argparse
 import csv
 import datetime
 import logging
-import os
 import hashlib
 import time
+
+from urllib.parse import urljoin, urlparse, parse_qs
 
 import requests
 
@@ -35,6 +36,7 @@ class ShootingsCrawler:
             level = logging.DEBUG
 
         self._logger = logger.get_logger(level=level, maxbytes=1024 * 1024)
+        self._logger.info('==========================================')
         self._logger.debug('arguments: {}'.format(args))
 
         current_year = datetime.datetime.now().year
@@ -45,24 +47,26 @@ class ShootingsCrawler:
             if year >= 2013 and year <= current_year:
                 self.year = year
             else:
-                self._logger.info("Year not in range [{}]. Will fetch data for the current year [{}].".format(
-                    year,
-                    current_year
-                ))
-                self.year = current_year
+                raise Exception("Year [{}] must be between 2013 and {}.".format(args.year, current_year))
 
-        if not args.tbr:
+        if not args.tbr or args.tbr < 0:
             self._tbr = 10
         else:
             self._tbr = args.tbr
 
+        if not args.tries or args.tries < 0:
+            self._tries = 3
+        else:
+            self._tries = args.tries
+
+        self._last_request = 0
         self.__create_base_url()
 
     def __create_base_url(self):
         if self.year < 2016:
-            base_url = os.path.join(BASE_URL, REPORTS_PRE_2016) + PAGE_ARG_PRE_2016
+            base_url = urljoin(BASE_URL, REPORTS_PRE_2016) + PAGE_ARG_PRE_2016
         else:
-            base_url = os.path.join(BASE_URL, REPORTS) + PAGE_ARG
+            base_url = urljoin(BASE_URL, REPORTS) + PAGE_ARG
 
         self._base_url = base_url.replace('<year>', str(self.year))
         self._logger.debug("Base URL: {}".format(self._base_url))
@@ -70,26 +74,53 @@ class ShootingsCrawler:
     def get_logger(self):
         return self._logger
 
-    def __get_num_pages(self):
+    def __get_num_pages(self, data):
         self._logger.debug("getting num of pages")
-        pass
+        a = data.find('li', attrs={'class': 'pager-last'}).find('a')
+        url = urljoin(BASE_URL, a['href'])
+        p = urlparse(url)
+        q = parse_qs(p.query)
+        pages = int(int(q['page'][0]))
+        self._logger.debug("# of pages to fetch: %d" % pages)
+        return pages
 
     def __make_request(self, url):
+        """
+        Make a request with the given user-agent.
+
+        Takes care to honor time between requests.
+        """
+        while True:
+            t = int(time.time())
+            if t - self._last_request >= self._tbr:
+                self._last_request = t
+                break
+            time.sleep(1)
+
         headers = {'user-agent': USER_AGENT}
         r = requests.get(url=url, headers=headers)
         return r
 
-    def __fetch_page(self, url, page=0, tries=0):
+    def __fetch_page(self, page=0, tries=3):
+        url = self._base_url.replace('<num_page>', str(page))
         self._logger.debug('fetching page {}'.format(url))
-        url = url.replace('<num_page>', page)
 
         if tries < 0:
             raise Exception("Could not fetch the URL: {}".format(url))
 
         r = self.__make_request(url)
         if not r.ok:
-            time.sleep(self._tbr)
-            self.__fetch_page(url=url, page=page, tries=tries - 1)
+            print("Could not fetch url {}. Response code: {}. Retrying in {} seconds.".format(
+                url,
+                r.status_code,
+                self._tbr
+            ))
+            self._logger.warning("Could not fetch url {}. Response code: {}. Retrying in {} seconds.".format(
+                url,
+                r.status_code,
+                self._tbr
+            ))
+            self.__fetch_page(page=page, tries=tries - 1)
 
         return BeautifulSoup(r.text, 'html.parser')
 
@@ -99,9 +130,12 @@ class ShootingsCrawler:
 
     def run(self):
         self._logger.debug('running')
-        self.__get_num_pages()
-        self.__extract_data(None)
-        pass
+        data = self.__fetch_page(page=0)
+        pages = self.__get_num_pages(data)
+        self.__extract_data(data)
+        for i in range(1, pages + 1):
+            data = self.__fetch_page(page=i)
+            self.__extract_data(data)
 
 
 if __name__ == '__main__':
@@ -112,6 +146,7 @@ if __name__ == '__main__':
                         action="store_true")
     parser.add_argument("-y", "--year", help="Year of the shootings. Must be on or over 2013.", type=int)
     parser.add_argument("-t", "--tbr", help="Time elapsed between requests in seconds (default 10).", type=int)
+    parser.add_argument("-T", "--tries", help="Number of times trying to fetch the page (default 3).", type=int)
     parser.add_argument("-D", "--debug", help="Sets logger to log debug events.", action="store_true")
 
     args = parser.parse_args()
@@ -125,4 +160,5 @@ if __name__ == '__main__':
             r = ShootingsCrawler(args=args)
             r.run()
         except Exception as ex:
-            r.get_logger().error("Error: {}".format(ex))
+            print("Error: {}".format(ex))
+            logger.get_logger(maxbytes=1024 * 1024).error("Error: {}".format(ex))
