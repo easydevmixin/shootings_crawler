@@ -6,7 +6,6 @@ import os
 
 
 def get_logger(name='shootings.log', level=logging.INFO, maxbytes=1024, backupcount=5):
-    print(os.getcwd())
     filename = os.path.join('..', 'logs', name)
     logger = logging.getLogger('ShootingsLogger')
     logger.setLevel(level)
