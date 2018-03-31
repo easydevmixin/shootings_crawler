@@ -1,5 +1,22 @@
-        except Exception as ex:
-            print("Error checking robots.txt file: {}".format(ex))
+#!/usr/bin/env python
+
+# -*- coding: utf-8 -*-
+
+import argparse
+
+import license
+
+
+class ShootingsCrawler:
+    def __init__(self, args):
+        print('arguments: {}'.format(args))
+        pass
+
+    def run(self):
+        print('running')
+        pass
+
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
 
@@ -15,12 +32,7 @@ if __name__ == '__main__':
         license.show_contitions()
     else:
         try:
-#!/usr/bin/env python
-
-# -*- coding: utf-8 -*-
-
-import argparse
-
-import license
-
-
+            r = ShootingsCrawler(args=args)
+            r.run()
+        except Exception as ex:
+            print("Error checking robots.txt file: {}".format(ex))
