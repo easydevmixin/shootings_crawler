@@ -6,6 +6,7 @@ import argparse
 import csv
 import datetime
 import logging
+import os
 import time
 
 from urllib.parse import urljoin, urlparse, parse_qs
@@ -59,6 +60,14 @@ class ShootingsCrawler:
             self._tries = 3
         else:
             self._tries = args.tries
+
+        if not args.output:
+            self._output = 'output.csv'
+        else:
+            if args.output.endswith('.csv'):
+                self._output = args.output
+            else:
+                self._output = "{}.csv".format(args.output)
 
         self._last_request = 0
         self.__create_base_url()
@@ -129,6 +138,8 @@ class ShootingsCrawler:
         self._logger.debug("extracting data")
         rows = data.find_all('tbody')[0].find_all('tr')
 
+        incidents = []
+
         for row in rows:
             incident = Incident()
             columns = row.find_all('td')
@@ -143,39 +154,43 @@ class ShootingsCrawler:
             incident.num_injured = columns[5].text
             incident_link = columns[6].find('ul').find('li').find('a')['href']  # link to incident
             incident.incident_link = urljoin(BASE_URL, incident_link)
-            # TODO: Create CSV file
-            print('{}, {}, {}, "{}", "{}", "{}", {}, {}, "{}"'.format(
-                incident.year,
-                incident.month,
-                incident.day,
-                incident.state,
-                incident.city_or_county,
-                incident.address,
-                incident.num_killed,
-                incident.num_injured,
-                incident.incident_link,
-            ))
+
+            incidents.append(incident)
+
+        return incidents
 
     def run(self):
         self._logger.debug('running')
-        data = self.__fetch_page(page=0)
-        pages = self.__get_num_pages(data)
-        self.__extract_data(data)
-        for i in range(1, pages + 1):
-            data = self.__fetch_page(page=i)
-            self.__extract_data(data)
+        filename = os.path.join('..', 'out', self._output)
+        with open(filename, 'w') as f:
+            writer = csv.writer(f)
+            writer.writerow(['sha256', 'year', 'month', 'day', 'state', 'city_or_county', 'address', 'num_killed', 'num_injured', 'incident_link'])
+
+            data = self.__fetch_page(page=0)
+            pages = self.__get_num_pages(data)
+            incidents = self.__extract_data(data)
+            self._write_incidents(writer, incidents)
+            for i in range(1, pages + 1):
+                data = self.__fetch_page(page=i)
+                incidents = self.__extract_data(data)
+                self._write_incidents(writer, incidents)
+
+    def _write_incidents(self, csvwriter, incidents):
+        for incident in incidents:
+            csvwriter.writerow(incident.to_csv())
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
 
-    parser.add_argument("-w", "--warranty", help="Check out the warranty summary.", action="store_true")
     parser.add_argument("-c", "--conditions", help="Check out the conditions summary.",
                         action="store_true")
-    parser.add_argument("-y", "--year", help="Year of the shootings. Must be on or over 2013.", type=int)
+    parser.add_argument("-D", "--debug", help="Sets logger to log debug events.", action="store_true")
+    parser.add_argument("-o", "--output", help="Output filename (default is output.csv).")
     parser.add_argument("-t", "--tbr", help="Time elapsed between requests in seconds (default 10).", type=int)
     parser.add_argument("-T", "--tries", help="Number of times trying to fetch the page (default 3).", type=int)
-    parser.add_argument("-D", "--debug", help="Sets logger to log debug events.", action="store_true")
+    parser.add_argument("-w", "--warranty", help="Check out the warranty summary.", action="store_true")
+    parser.add_argument("-y", "--year", help="Year of the shootings. Must be on or over 2013.", type=int)
 
     args = parser.parse_args()
 
