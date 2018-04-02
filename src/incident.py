@@ -132,5 +132,9 @@ class Incident:
         )
         self._sha256 = hashlib.sha256(st.encode(encoding='utf_8')).hexdigest()
 
+    def to_csv(self):
+        return [self.sha256, self.year, self.month, self.day, self.state, self.city_or_county,
+                self.address, self.num_killed, self.num_injured, self.incident_link]
+
     def __eq__(self, other):
         return self.sha256 == other.sha256
