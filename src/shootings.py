@@ -6,7 +6,6 @@ import argparse
 import csv
 import datetime
 import logging
-import hashlib
 import time
 
 from urllib.parse import urljoin, urlparse, parse_qs
@@ -14,7 +13,9 @@ from urllib.parse import urljoin, urlparse, parse_qs
 import requests
 
 from bs4 import BeautifulSoup
+from dateutil.parser import parse
 
+from incident import Incident
 import license
 import logger
 
@@ -126,7 +127,34 @@ class ShootingsCrawler:
 
     def __extract_data(self, data):
         self._logger.debug("extracting data")
-        pass
+        rows = data.find_all('tbody')[0].find_all('tr')
+
+        for row in rows:
+            incident = Incident()
+            columns = row.find_all('td')
+            date = parse(columns[0].text)
+            incident.year = date.year
+            incident.month = date.month
+            incident.day = date.day
+            incident.state = columns[1].text
+            incident.city_or_county = columns[2].text
+            incident.address = columns[3].text
+            incident.num_killed = columns[4].text
+            incident.num_injured = columns[5].text
+            incident_link = columns[6].find('ul').find('li').find('a')['href']  # link to incident
+            incident.incident_link = urljoin(BASE_URL, incident_link)
+            # TODO: Create CSV file
+            print('{}, {}, {}, "{}", "{}", "{}", {}, {}, "{}"'.format(
+                incident.year,
+                incident.month,
+                incident.day,
+                incident.state,
+                incident.city_or_county,
+                incident.address,
+                incident.num_killed,
+                incident.num_injured,
+                incident.incident_link,
+            ))
 
     def run(self):
         self._logger.debug('running')
