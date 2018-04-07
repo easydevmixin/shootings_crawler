@@ -195,6 +195,16 @@ class ShootingsCrawler:
             list_of_guns_involved.append(kvs)
         incident.guns_involved = list_of_guns_involved
 
+    def __get_district(self, data, incident):
+        district = data.find('h2', text=re.compile('District*'))
+        district_data = {}
+        for t in district.parent.text.replace('\nDistrict\n', '').split('\n'):
+            if not t:
+                continue
+            k, v = t.strip().split(':')
+            district_data[k.strip()] = v.strip()
+        incident.district = district_data
+
     def __fetch_additional_info(self, incident):
         r = self.__make_request(incident.incident_link)
         data = self.__make_soup(r.text)
@@ -203,6 +213,7 @@ class ShootingsCrawler:
         self.__get_characteristics(data=data, incident=incident)
         self.__get_notes(data=data, incident=incident)
         self.__get_guns_involved(data=data, incident=incident)
+        self.__get_district(data=data, incident=incident)
     additional_info = __fetch_additional_info
 
     def __extract_data(self, data):
