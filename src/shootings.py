@@ -163,7 +163,7 @@ class ShootingsCrawler:
             lis = ul.find_all('li')
             for li in lis:
                 k, v = li.text.strip().split(':')
-                kvs[k] = v.strip()
+                kvs[k.strip()] = v.strip()
             list_of_participants.append(kvs)
         incident.participants = list_of_participants
 
@@ -191,7 +191,7 @@ class ShootingsCrawler:
             lis = ul.find_all('li')
             for li in lis:
                 k, v = li.text.strip().split(':')
-                kvs[k] = v.strip()
+                kvs[k.strip()] = v.strip()
             list_of_guns_involved.append(kvs)
         incident.guns_involved = list_of_guns_involved
 
