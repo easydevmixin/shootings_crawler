@@ -167,11 +167,22 @@ class ShootingsCrawler:
             list_of_participants.append(kvs)
         incident.participants = list_of_participants
 
+    def __get_characteristics(self, data, incident):
+        incident_characteristics = data.find('h2', text=re.compile('Incident Characteristics*'))
+        list_of_characteristics = []
+        ul = incident_characteristics.parent.find('ul')
+        lis = ul.find_all('li')
+        for li in lis:
+            k = li.text.strip()
+            list_of_characteristics.append(k)
+        incident.characteristics = list_of_characteristics
+
     def __fetch_additional_info(self, incident):
         r = self.__make_request(incident.incident_link)
         data = self.__make_soup(r.text)
         self.__get_lat_lon(data=data, incident=incident)
         self.__get_participants(data=data, incident=incident)
+        self.__get_characteristics(data=data, incident=incident)
     additional_info = __fetch_additional_info
 
     def __extract_data(self, data):
