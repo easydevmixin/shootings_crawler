@@ -32,9 +32,9 @@ USER_AGENT = 'shootings/{}'.format(VERSION)
 
 
 class ShootingsCrawler:
-    def __init__(self, args):
+    def __init__(self, args=None):
         level = logging.INFO
-        if args.debug:
+        if args is not None and args.debug:
             level = logging.DEBUG
 
         self._logger = logger.get_logger(level=level, maxbytes=1024 * 1024)
@@ -42,32 +42,39 @@ class ShootingsCrawler:
         self._logger.debug('arguments: {}'.format(args))
 
         current_year = datetime.datetime.now().year
-        if not args.year:
+
+        if args is not None:
+            if args.year:
+                year = args.year
+                if year >= 2013 and year <= current_year:
+                    self.year = year
+                else:
+                    raise Exception("Year [{}] must be between 2013 and {}.".format(args.year, current_year))
+            else:
+                self.year = current_year
+
+            if args.tbr:
+                self._tbr = args.tbr
+            else:
+                self._tbr = 10
+
+            if args.tries:
+                self._tries = args.tries
+            else:
+                self._tries = 3
+
+            if args.output:
+                if args.output.endswith('.csv'):
+                    self._output = args.output
+                else:
+                    self._output = "{}.csv".format(args.output)
+            else:
+                self._output = 'output.csv'
+        else:
             self.year = current_year
-        else:
-            year = args.year
-            if year >= 2013 and year <= current_year:
-                self.year = year
-            else:
-                raise Exception("Year [{}] must be between 2013 and {}.".format(args.year, current_year))
-
-        if not args.tbr or args.tbr < 0:
             self._tbr = 10
-        else:
-            self._tbr = args.tbr
-
-        if not args.tries or args.tries < 0:
             self._tries = 3
-        else:
-            self._tries = args.tries
-
-        if not args.output:
             self._output = 'output.csv'
-        else:
-            if args.output.endswith('.csv'):
-                self._output = args.output
-            else:
-                self._output = "{}.csv".format(args.output)
 
         self._last_request = 0
         self.__create_base_url()
