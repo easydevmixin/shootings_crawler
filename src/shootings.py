@@ -118,6 +118,9 @@ class ShootingsCrawler:
         r = requests.get(url=url, headers=headers)
         return r
 
+    def __make_soup(self, data, parser='html.parser'):
+        return BeautifulSoup(data, parser)
+
     def __fetch_page(self, page=0, tries=3):
         url = self._base_url.replace('<num_page>', str(page))
         self._logger.debug('fetching page {}'.format(url))
@@ -139,7 +142,7 @@ class ShootingsCrawler:
             ))
             self.__fetch_page(page=page, tries=tries - 1)
 
-        return BeautifulSoup(r.text, 'html.parser')
+        return self.__make_soup(r.text)
 
     def __extract_data(self, data):
         self._logger.debug("extracting data")
