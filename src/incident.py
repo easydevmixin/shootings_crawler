@@ -197,7 +197,9 @@ class Incident:
 
     def to_csv(self):
         return [self.sha256, self.year, self.month, self.day, self.state, self.city_or_county,
-                self.address, self.num_killed, self.num_injured, self.incident_link]
+                self.address, self.num_killed, self.num_injured, self.incident_link,
+                self.lat, self.lon, self.participants, self.characteristics, self.notes,
+                self.guns_involved, self.district]
 
     def __eq__(self, other):
         return self.sha256 == other.sha256

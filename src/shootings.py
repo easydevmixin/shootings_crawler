@@ -248,7 +248,27 @@ class ShootingsCrawler:
         filename = os.path.join('..', 'out', self._output)
         with open(filename, 'w') as f:
             writer = csv.writer(f)
-            writer.writerow(['sha256', 'year', 'month', 'day', 'state', 'city_or_county', 'address', 'num_killed', 'num_injured', 'incident_link'])
+            writer.writerow(
+                [
+                    'sha256',
+                    'year',
+                    'month',
+                    'day',
+                    'state',
+                    'city_or_county',
+                    'address',
+                    'num_killed',
+                    'num_injured',
+                    'incident_link',
+                    'latitude',
+                    'longitude',
+                    'participants',
+                    'characteristics',
+                    'notes',
+                    'guns_involved',
+                    'district'
+                ]
+            )
 
             data = self.__fetch_page(page=0)
             pages = self.__get_num_pages(data)
