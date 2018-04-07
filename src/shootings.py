@@ -7,6 +7,7 @@ import csv
 import datetime
 import logging
 import os
+import re
 import time
 
 from urllib.parse import urljoin, urlparse, parse_qs
@@ -144,6 +145,21 @@ class ShootingsCrawler:
 
         return self.__make_soup(r.text)
 
+    def __get_lat_lon(self, data, incident):
+        lat, lon = 0, 0
+        geo = data.find('span', text=re.compile('Geolocation*'))
+        if geo:
+            geo = geo.text.split(':')[1].strip().replace(' ', '')
+            lat, lon = geo.split(',')
+        incident.lat = lat
+        incident.lon = lon
+
+    def __fetch_additional_info(self, incident):
+        r = self.__make_request(incident.incident_link)
+        data = self.__make_soup(r.text)
+        self.__get_lat_lon(data=data, incident=incident)
+    additional_info = __fetch_additional_info
+
     def __extract_data(self, data):
         self._logger.debug("extracting data")
         rows = data.find_all('tbody')[0].find_all('tr')
@@ -164,6 +180,8 @@ class ShootingsCrawler:
             incident.num_injured = columns[5].text
             incident_link = columns[6].find('ul').find('li').find('a')['href']  # link to incident
             incident.incident_link = urljoin(BASE_URL, incident_link)
+
+            self.__fetch_additional_info(incident)
 
             incidents.append(incident)
 
