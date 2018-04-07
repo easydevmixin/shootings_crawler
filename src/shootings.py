@@ -182,6 +182,19 @@ class ShootingsCrawler:
         detail = notes.parent.find('p').text.strip()
         incident.notes = detail
 
+    def __get_guns_involved(self, data, incident):
+        guns = data.find('h2', text=re.compile('Guns Involved*'))
+        list_of_guns_involved = []
+        uls = guns.parent.find_all('ul')
+        for ul in uls:
+            kvs = {}
+            lis = ul.find_all('li')
+            for li in lis:
+                k, v = li.text.strip().split(':')
+                kvs[k] = v.strip()
+            list_of_guns_involved.append(kvs)
+        incident.guns_involved = list_of_guns_involved
+
     def __fetch_additional_info(self, incident):
         r = self.__make_request(incident.incident_link)
         data = self.__make_soup(r.text)
@@ -189,6 +202,7 @@ class ShootingsCrawler:
         self.__get_participants(data=data, incident=incident)
         self.__get_characteristics(data=data, incident=incident)
         self.__get_notes(data=data, incident=incident)
+        self.__get_guns_involved(data=data, incident=incident)
     additional_info = __fetch_additional_info
 
     def __extract_data(self, data):
