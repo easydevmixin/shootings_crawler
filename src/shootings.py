@@ -146,63 +146,121 @@ class ShootingsCrawler:
         return self.__make_soup(r.text)
 
     def __get_lat_lon(self, data, incident):
+        self._logger.debug("getting lat and lon")
         lat, lon = 0, 0
         geo = data.find('span', text=re.compile('Geolocation*'))
+        if not geo:
+            self._logger.debug("No geolocation section here. Exiting function.")
+            return
+
         if geo:
             geo = geo.text.split(':')[1].strip().replace(' ', '')
             lat, lon = geo.split(',')
+        self._logger.debug("lat: {}".format(lat))
+        self._logger.debug("lon: {}".format(lon))
         incident.lat = lat
         incident.lon = lon
 
     def __get_participants(self, data, incident):
+        self._logger.debug("getting participants")
         participants = data.find('h2', text=re.compile('Participants*'))
+        if not participants:
+            self._logger.debug("No participants section here. Exiting function.")
+            return
+
         list_of_participants = []
         uls = participants.parent.find_all('ul')
         for ul in uls:
             kvs = {}
             lis = ul.find_all('li')
             for li in lis:
-                k, v = li.text.strip().split(':')
+                t = li.text
+                if not t or ':' not in t:
+                    self._logger.debug("No value to get from participants: '{}'".format(t))
+                    continue
+                k, v = t.strip().split(':')
                 kvs[k.strip()] = v.strip()
             list_of_participants.append(kvs)
+        self._logger.debug("Participants: {}".format(repr(list_of_participants)))
         incident.participants = list_of_participants
 
     def __get_characteristics(self, data, incident):
+        self._logger.debug("getting characteristics")
         incident_characteristics = data.find('h2', text=re.compile('Incident Characteristics*'))
+        if not incident_characteristics:
+            self._logger.debug("No incident characteristics section here. Exiting function.")
+            return
         list_of_characteristics = []
         ul = incident_characteristics.parent.find('ul')
         lis = ul.find_all('li')
         for li in lis:
-            k = li.text.strip()
+            t = li.text
+            if not t:
+                self._logger.debug("No value to get from characteristics: '{}'".format(t))
+                continue
+            k = t.strip()
             list_of_characteristics.append(k)
+        self._logger.debug("Characteristics: {}".format(repr(list_of_characteristics)))
         incident.characteristics = list_of_characteristics
 
     def __get_notes(self, data, incident):
+        self._logger.debug("getting notes")
         notes = data.find('h2', text=re.compile('Notes*'))
-        detail = notes.parent.find('p').text.strip()
+
+        if not notes:
+            self._logger.debug("No notes section here. Exiting function.")
+            return
+
+        detail = notes.parent.find('p')
+        if detail:
+            t = detail.text
+            if not t:
+                self._logger.debug("No notes: '{}'".format(t))
+                return
+            detail = t.strip()
+        self._logger.debug("Notes: {}".format(detail))
         incident.notes = detail
 
     def __get_guns_involved(self, data, incident):
+        self._logger.debug("getting guns involved")
         guns = data.find('h2', text=re.compile('Guns Involved*'))
+
+        if not guns:
+            self._logger.debug("No guns involved section here. Exiting function.")
+            return
+
         list_of_guns_involved = []
         uls = guns.parent.find_all('ul')
         for ul in uls:
             kvs = {}
             lis = ul.find_all('li')
             for li in lis:
-                k, v = li.text.strip().split(':')
+                t = li.text
+                if not t or ':' not in t:
+                    self._logger.debug("No value to get from guns involved: '{}'".format(t))
+                    continue
+                k, v = t.strip().split(':')
                 kvs[k.strip()] = v.strip()
             list_of_guns_involved.append(kvs)
+        self._logger.debug("Guns involved: {}".format(repr(list_of_guns_involved)))
         incident.guns_involved = list_of_guns_involved
 
     def __get_district(self, data, incident):
+        self._logger.debug("getting district")
         district = data.find('h2', text=re.compile('District*'))
+
+        if not district:
+            self._logger.debug("No district section here. Exiting function.")
+            return
+
         district_data = {}
         for t in district.parent.text.replace('\nDistrict\n', '').split('\n'):
-            if not t:
+            if not t or ':' not in t:
+                self._logger.debug("No value to get from district: '{}'".format(t))
                 continue
             k, v = t.strip().split(':')
             district_data[k.strip()] = v.strip()
+        self._logger.debug("district: {}".format(repr(district_data)))
         incident.district = district_data
 
     def __fetch_additional_info(self, incident):
