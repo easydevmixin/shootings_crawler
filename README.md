@@ -6,7 +6,7 @@ Aquesta pràctica s’emmarca dintre del marc dels estudis de Ciència de Dades 
 
 En aquesta pràctica es tracta d’obtenir les dades d’un lloc web i guardar-les en un fitxer CSV.
 
-La meva pràctica consta d’una aplicació que obté les dades dels tirotejos massius que s’han produït als USA des del 2013. Per obtenir les dades he usat el llenguatge Python i les dades provenen de la web [Gun violence archive](http://www.gunviolencearchive.org).
+La meva pràctica consta d’una aplicació que obté les dades dels tirotejos massius que s’han produït als USA des del 2013. Per obtenir les dades he usat el llenguatge Python i les dades provenen de la web [Gun violence archive](http://www.gunviolencearchive.org/reports/mass-shooting).
 
 ## Membres de l’equip
 
