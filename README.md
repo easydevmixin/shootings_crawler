@@ -51,7 +51,7 @@ Les instruccions donades en aquest `README` estan fetes tenint en compte que l�
 
 El primer que hem de fer és baixar el repositori del projecte:
 
-	$ git clone https://github.com/easydevmixin/shoothings_crawler.git
+	$ git clone https://github.com/easydevmixin/shootings_crawler.git
 
 En la meva opinió i experiència, la millor manera d’executar una aplicació amb Python és mitjançant l’ús d’entorns virtuals. Per poder crear un entorn virtual necessitem [`virtualenv i pip`](http://www.easydevmixin.com/2015/06/07/virtualenv-and-pip/).
 
