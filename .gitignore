@@ -6,3 +6,4 @@ __pycache__
 out/*
 !out/.empty
 !out/20180407_output-2018.csv
+doc/rgallart-PRAC1-TD.docx
