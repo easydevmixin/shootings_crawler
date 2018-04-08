@@ -7,6 +7,7 @@ import csv
 import datetime
 import logging
 import os
+import re
 import time
 
 from urllib.parse import urljoin, urlparse, parse_qs
@@ -32,9 +33,9 @@ USER_AGENT = 'shootings/{}'.format(VERSION)
 
 
 class ShootingsCrawler:
-    def __init__(self, args):
+    def __init__(self, args=None):
         level = logging.INFO
-        if args.debug:
+        if args is not None and args.debug:
             level = logging.DEBUG
 
         self._logger = logger.get_logger(level=level, maxbytes=1024 * 1024)
@@ -42,32 +43,39 @@ class ShootingsCrawler:
         self._logger.debug('arguments: {}'.format(args))
 
         current_year = datetime.datetime.now().year
-        if not args.year:
+
+        if args is not None:
+            if args.year:
+                year = args.year
+                if year >= 2013 and year <= current_year:
+                    self.year = year
+                else:
+                    raise Exception("Year [{}] must be between 2013 and {}.".format(args.year, current_year))
+            else:
+                self.year = current_year
+
+            if args.tbr:
+                self._tbr = args.tbr
+            else:
+                self._tbr = 10
+
+            if args.tries:
+                self._tries = args.tries
+            else:
+                self._tries = 3
+
+            if args.output:
+                if args.output.endswith('.csv'):
+                    self._output = args.output
+                else:
+                    self._output = "{}.csv".format(args.output)
+            else:
+                self._output = 'output.csv'
+        else:
             self.year = current_year
-        else:
-            year = args.year
-            if year >= 2013 and year <= current_year:
-                self.year = year
-            else:
-                raise Exception("Year [{}] must be between 2013 and {}.".format(args.year, current_year))
-
-        if not args.tbr or args.tbr < 0:
             self._tbr = 10
-        else:
-            self._tbr = args.tbr
-
-        if not args.tries or args.tries < 0:
             self._tries = 3
-        else:
-            self._tries = args.tries
-
-        if not args.output:
             self._output = 'output.csv'
-        else:
-            if args.output.endswith('.csv'):
-                self._output = args.output
-            else:
-                self._output = "{}.csv".format(args.output)
 
         self._last_request = 0
         self.__create_base_url()
@@ -111,6 +119,9 @@ class ShootingsCrawler:
         r = requests.get(url=url, headers=headers)
         return r
 
+    def __make_soup(self, data, parser='html.parser'):
+        return BeautifulSoup(data, parser)
+
     def __fetch_page(self, page=0, tries=3):
         url = self._base_url.replace('<num_page>', str(page))
         self._logger.debug('fetching page {}'.format(url))
@@ -132,7 +143,136 @@ class ShootingsCrawler:
             ))
             self.__fetch_page(page=page, tries=tries - 1)
 
-        return BeautifulSoup(r.text, 'html.parser')
+        return self.__make_soup(r.text)
+
+    def __get_lat_lon(self, data, incident):
+        self._logger.debug("getting lat and lon")
+        lat, lon = 0, 0
+        geo = data.find('span', text=re.compile('Geolocation*'))
+        if not geo:
+            self._logger.debug("No geolocation section here. Exiting function.")
+            return
+
+        if geo:
+            geo = geo.text.split(':')[1].strip().replace(' ', '')
+            lat, lon = geo.split(',')
+        self._logger.debug("lat: {}".format(lat))
+        self._logger.debug("lon: {}".format(lon))
+        incident.lat = lat
+        incident.lon = lon
+
+    def __get_participants(self, data, incident):
+        self._logger.debug("getting participants")
+        participants = data.find('h2', text=re.compile('Participants*'))
+        if not participants:
+            self._logger.debug("No participants section here. Exiting function.")
+            return
+
+        list_of_participants = []
+        uls = participants.parent.find_all('ul')
+        for ul in uls:
+            kvs = {}
+            lis = ul.find_all('li')
+            for li in lis:
+                t = li.text
+                if not t or ':' not in t:
+                    self._logger.debug("No value to get from participants: '{}'".format(t))
+                    continue
+                k, v = t.strip().split(':')
+                kvs[k.strip()] = v.strip()
+            list_of_participants.append(kvs)
+        self._logger.debug("Participants: {}".format(repr(list_of_participants)))
+        incident.participants = list_of_participants
+
+    def __get_characteristics(self, data, incident):
+        self._logger.debug("getting characteristics")
+        incident_characteristics = data.find('h2', text=re.compile('Incident Characteristics*'))
+        if not incident_characteristics:
+            self._logger.debug("No incident characteristics section here. Exiting function.")
+            return
+        list_of_characteristics = []
+        ul = incident_characteristics.parent.find('ul')
+        lis = ul.find_all('li')
+        for li in lis:
+            t = li.text
+            if not t:
+                self._logger.debug("No value to get from characteristics: '{}'".format(t))
+                continue
+            k = t.strip()
+            list_of_characteristics.append(k)
+        self._logger.debug("Characteristics: {}".format(repr(list_of_characteristics)))
+        incident.characteristics = list_of_characteristics
+
+    def __get_notes(self, data, incident):
+        self._logger.debug("getting notes")
+        notes = data.find('h2', text=re.compile('Notes*'))
+
+        if not notes:
+            self._logger.debug("No notes section here. Exiting function.")
+            return
+
+        detail = notes.parent.find('p')
+        if detail:
+            t = detail.text
+            if not t:
+                self._logger.debug("No notes: '{}'".format(t))
+                return
+            detail = t.strip()
+        self._logger.debug("Notes: {}".format(detail))
+        incident.notes = detail
+
+    def __get_guns_involved(self, data, incident):
+        self._logger.debug("getting guns involved")
+        guns = data.find('h2', text=re.compile('Guns Involved*'))
+
+        if not guns:
+            self._logger.debug("No guns involved section here. Exiting function.")
+            return
+
+        list_of_guns_involved = []
+        uls = guns.parent.find_all('ul')
+        for ul in uls:
+            kvs = {}
+            lis = ul.find_all('li')
+            for li in lis:
+                t = li.text
+                if not t or ':' not in t:
+                    self._logger.debug("No value to get from guns involved: '{}'".format(t))
+                    continue
+                k, v = t.strip().split(':')
+                kvs[k.strip()] = v.strip()
+            list_of_guns_involved.append(kvs)
+        self._logger.debug("Guns involved: {}".format(repr(list_of_guns_involved)))
+        incident.guns_involved = list_of_guns_involved
+
+    def __get_district(self, data, incident):
+        self._logger.debug("getting district")
+        district = data.find('h2', text=re.compile('District*'))
+
+        if not district:
+            self._logger.debug("No district section here. Exiting function.")
+            return
+
+        district_data = {}
+        for t in district.parent.text.replace('\nDistrict\n', '').split('\n'):
+            if not t or ':' not in t:
+                self._logger.debug("No value to get from district: '{}'".format(t))
+                continue
+            k, v = t.strip().split(':')
+            district_data[k.strip()] = v.strip()
+        self._logger.debug("district: {}".format(repr(district_data)))
+        incident.district = district_data
+
+    def __fetch_additional_info(self, incident):
+        r = self.__make_request(incident.incident_link)
+        data = self.__make_soup(r.text)
+        self.__get_lat_lon(data=data, incident=incident)
+        self.__get_participants(data=data, incident=incident)
+        self.__get_characteristics(data=data, incident=incident)
+        self.__get_notes(data=data, incident=incident)
+        self.__get_guns_involved(data=data, incident=incident)
+        self.__get_district(data=data, incident=incident)
+    additional_info = __fetch_additional_info
 
     def __extract_data(self, data):
         self._logger.debug("extracting data")
@@ -155,6 +295,8 @@ class ShootingsCrawler:
             incident_link = columns[6].find('ul').find('li').find('a')['href']  # link to incident
             incident.incident_link = urljoin(BASE_URL, incident_link)
 
+            self.__fetch_additional_info(incident)
+
             incidents.append(incident)
 
         return incidents
@@ -164,7 +306,27 @@ class ShootingsCrawler:
         filename = os.path.join('..', 'out', self._output)
         with open(filename, 'w') as f:
             writer = csv.writer(f)
-            writer.writerow(['sha256', 'year', 'month', 'day', 'state', 'city_or_county', 'address', 'num_killed', 'num_injured', 'incident_link'])
+            writer.writerow(
+                [
+                    'sha256',
+                    'year',
+                    'month',
+                    'day',
+                    'state',
+                    'city_or_county',
+                    'address',
+                    'num_killed',
+                    'num_injured',
+                    'incident_link',
+                    'latitude',
+                    'longitude',
+                    'participants',
+                    'characteristics',
+                    'notes',
+                    'guns_involved',
+                    'district'
+                ]
+            )
 
             data = self.__fetch_page(page=0)
             pages = self.__get_num_pages(data)
