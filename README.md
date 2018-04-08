@@ -26,7 +26,7 @@ L’script que obté les dades dels tirotejos escriu un log rotatiu. Aquest log 
 
 ### out
 
-En aquest directori es guarda la sortida de l’script (el fitxer CSV).
+En aquest directori es guarda la sortida de l’script (el fitxer CSV). També conté un fitxer de sortida de mostra (`20180407_output-2018.csv`).
 
 ### src
 
