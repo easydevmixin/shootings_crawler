@@ -1,0 +1,9 @@
+Hola Mireia,
+
+Sóc Ramon Maria i aquest és l'enllaç al repositori de Github per la pràctica #1 de Tipologia de Dades:
+
+https://github.com/easydevmixin/shootings_crawler
+
+Salutacions,
+
+Ramon Maria Gallart Escolà
